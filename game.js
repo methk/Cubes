@@ -5,6 +5,10 @@ var renderer, scene, camera, light;
 var groundStartWidth = 3000, groundStartHeight = 100, groundStartDepth = 100;
 var groundStartX = 0, groundStartY = 0, groundStartZ = 1500;
 
+var panelWidth = 1, panelHeight = 1000, panelDepth = 1000;
+var panelAStartX = 4000, panelAStartY = 0, panelAStartZ = 1500;
+var panelBStartX = -1100, panelBStartY = 0, panelBStartZ = 1500;
+
 var playerSize = groundStartHeight;
 var playerStartX = groundStartWidth / 2 - playerSize / 2, playerStartY = 1.5 * playerSize, playerStartZ = groundStartZ;
 
@@ -14,11 +18,14 @@ var checkerStartX = playerStartX, checkerStartY = playerStartY - playerSize / 2 
 var cameraStartX = playerStartX, cameraStartY = playerStartY + 1000, cameraStartZ = playerStartZ - 1500;
 var lightStartX = cameraStartX - 200, lightStartY = cameraStartY, lightStartZ = cameraStartZ;
 
+// Grounds variables
+var grounds = [], removeOutsideElements = false, addOutsideElements = true, groundToRemove;
+
 // Meshes
-var meshPlayer, meshChecker, meshGround;
+var meshPlayer, meshChecker, meshGround, meshPanelA, meshPanelB;
 
 // Materials
-var materialGround, materialPlayer, materialChecker;
+var materialGround, materialPlayer, materialChecker, materialPanels;
 
 // Jump variables
 var path, jumpingPlayerAngle = 0, jumpingPlayerPosition = 0, isJumping = false, playerSpeed = 200, movementVar = 6, jumpDistance = 300;
@@ -44,17 +51,26 @@ function init() {
   // MATERIALS
   materialGround = new THREE.MeshLambertMaterial({color: "#fac863"});
   materialPlayer = new THREE.MeshPhongMaterial({color: "#ec5f67"});
-  materialChecker = new THREE.MeshLambertMaterial();
+  materialPanels = new THREE.MeshLambertMaterial({color: "#42f450"});
+  materialPanels.visible = false;
+  materialChecker = new THREE.MeshLambertMaterial({color: "#68f442"});
   materialChecker.visible = false;
 
   // GEOMETRIES
   ground = new THREE.BoxGeometry(groundStartWidth, groundStartHeight, groundStartDepth);
+  panelA = new THREE.BoxGeometry(panelWidth, panelHeight, panelDepth);
+  panelB = new THREE.BoxGeometry(panelWidth, panelHeight, panelDepth);
   player = new THREE.BoxGeometry(playerSize, playerSize, playerSize);
   checker = new THREE.BoxGeometry(checkerWidth, checkerHeight, checkerDepth);
 
   meshGround = new THREE.Mesh(ground, materialGround);
+  meshGround.name = "ground1";
+  meshPanelA = new THREE.Mesh(panelA, materialPanels);
+  meshPanelB = new THREE.Mesh(panelB, materialPanels);
   meshPlayer = new THREE.Mesh(player, materialPlayer);
   meshChecker = new THREE.Mesh(checker, materialChecker);
+
+  grounds.push(meshGround);
 
   // CAMERA AND LIGHTS
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
@@ -62,7 +78,8 @@ function init() {
   light = new THREE.DirectionalLight("#ffffff", 0.65);
   light.target = meshPlayer;
 
-  scene.add(meshGround);
+  scene.add(meshPanelA);
+  scene.add(meshPanelB);
   scene.add(meshPlayer);
   scene.add(meshChecker);
   scene.add(ambientLight);
@@ -71,7 +88,7 @@ function init() {
   setUpObjects();
 
   // EVENT HANDLERS
-  window.addEventListener("resize", onWindowResize, false );
+  window.addEventListener("resize", onWindowResize, false);
   document.addEventListener("keydown", onDocumentKeyDown, false);
   document.onclick = function(event) { setUpJump(); };
 }
@@ -88,9 +105,21 @@ function onDocumentKeyDown(event) {
 }
 
 function setUpObjects() {
+  grounds.forEach(function(meshElement) { scene.remove(removeGroundFromArray(meshElement)); });
+  grounds.push(meshGround);
+
   meshGround.position.x = groundStartX;
   meshGround.position.y = groundStartY;
   meshGround.position.z = groundStartZ;
+  scene.add(meshGround);
+
+  meshPanelA.position.x = panelAStartX;
+  meshPanelA.position.y = panelAStartY;
+  meshPanelA.position.z = panelAStartZ;
+
+  meshPanelB.position.x = panelBStartX;
+  meshPanelB.position.y = panelBStartY;
+  meshPanelB.position.z = panelBStartZ;
 
   meshPlayer.position.x = playerStartX;
   meshPlayer.position.y = playerStartY;
@@ -113,16 +142,19 @@ function setUpObjects() {
   light.position.x = lightStartX;
   light.position.y = lightStartY;
   light.position.z = lightStartZ;
+
+  removeOutsideElements = false;
+  addOutsideElements = true;
 }
 
 function setUpJump() {
-  if(!isJumping && isOnTheGround()) {
+  if(!isJumping && typeof onTheGround() !== 'undefined') {
     isJumping = true;
     // Create path
     path = new THREE.Path();
-    path.moveTo(meshPlayer.position.x - 2 * jumpDistance, playerStartY - playerSize / 2);
-    path.absellipse(meshPlayer.position.x - jumpDistance, playerStartY - playerSize / 2, jumpDistance, jumpDistance + 0.5 * jumpDistance, 0, Math.PI, false);
-    path.lineTo(meshPlayer.position.x - 2 * jumpDistance, playerStartY - playerSize / 2);
+    path.moveTo(meshPlayer.position.x - 2 * jumpDistance, meshPlayer.position.y - playerSize / 2);
+    path.absellipse(meshPlayer.position.x - jumpDistance, meshPlayer.position.y - playerSize / 2, jumpDistance, jumpDistance + 0.5 * jumpDistance, 0, Math.PI, false);
+    path.lineTo(meshPlayer.position.x - 2 * jumpDistance, meshPlayer.position.y - playerSize / 2);
     // drawPath(); // Show jump path
     previousAngle = getAngle(jumpingPlayerPosition);
     previousPoint = path.getPointAt(jumpingPlayerPosition);
@@ -133,12 +165,16 @@ function jump() {
   jumpingPlayerPosition += 0.005 * (movementVar / 1.5);
   var point = path.getPointAt(jumpingPlayerPosition);
 
+  meshPanelA.position.x -= (meshPlayer.position.x - point.x);
+  meshPanelB.position.x -= (meshPlayer.position.x - point.x);
   light.position.x -= (meshPlayer.position.x - point.x);
   ambientLight.position.x -= (meshPlayer.position.x - point.x);
-  meshChecker.position.x -= (meshPlayer.position.x - point.x);
 
   camera.position.x -= (meshPlayer.position.x - point.x);
   camera.position.y -= (meshPlayer.position.y - point.y);
+
+  meshChecker.position.x -= (meshPlayer.position.x - point.x);
+  meshChecker.position.y -= (meshPlayer.position.y - point.y);
 
   meshPlayer.position.x = point.x;
   meshPlayer.position.y = point.y;
@@ -149,7 +185,13 @@ function jump() {
   previousPoint = point;
   previousAngle = jumpingPlayerAngle;
 
-  if(jumpingPlayerPosition > 0.95) {
+  var touchedGround = onTheGround();
+  if(jumpingPlayerPosition > 0.5 && typeof touchedGround !== 'undefined') { // Entro la fine del salto tocco un terreno
+    isJumping = false, jumpingPlayerPosition = 0;
+    meshChecker.position.y = touchedGround.position.y + touchedGround.geometry.parameters.height / 2;
+    meshPlayer.position.y = touchedGround.position.y + touchedGround.geometry.parameters.height / 2 + playerSize;
+    meshPlayer.quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0);
+  } else if(jumpingPlayerPosition > 0.95) {
     isJumping = false, jumpingPlayerPosition = 0;
     meshPlayer.quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), 0);
   }
@@ -184,37 +226,79 @@ function drawDot() {
   scene.add(meshLine);
 }
 
-function isOnTheGround() {
-  var checker = new THREE.Box3().setFromObject(meshChecker);
-  var ground = new THREE.Box3().setFromObject(meshGround);
-  return checker.intersectsBox(ground);
+function onTheGround() {
+  var result = undefined;
+  grounds.forEach(function(meshElement) {
+    if(typeof scene.getObjectByName(meshElement.name) !== 'undefined') {
+      var checker = new THREE.Box3().setFromObject(meshChecker);
+      var ground = new THREE.Box3().setFromObject(meshElement);
+      if(checker.intersectsBox(ground))
+        result = meshElement;
+    }
+  });
+  return result;
+}
+
+function panelAColliding() {
+  var result;
+  grounds.forEach(function(meshElement) {
+    if(typeof scene.getObjectByName(meshElement.name) !== 'undefined') {
+      var panelA = new THREE.Box3().setFromObject(meshPanelA);
+      var ground = new THREE.Box3().setFromObject(meshElement);
+      if(panelA.intersectsBox(ground))
+        result = meshElement;
+    }
+  });
+  return result;
+}
+
+function panelBColliding() {
+  var result = undefined;
+  grounds.forEach(function(meshElement) {
+    if(typeof scene.getObjectByName(meshElement.name) !== 'undefined') {
+      var panelB = new THREE.Box3().setFromObject(meshPanelB);
+      var ground = new THREE.Box3().setFromObject(meshElement);
+      if(panelB.intersectsBox(ground))
+        result = meshElement;
+    }
+  });
+  return result;
 }
 
 function createRandomGround() {
   var blockWith = 100;
-  var groundWidth = Math.random() * (blockWith * 15 - blockWith) + blockWith;
+  var newGroundWidth = Math.random() * (blockWith * 15 - blockWith) + blockWith;
 
-  var groundPositionX = Math.random() * ((1.75 * jumpDistance) - 0.5 * jumpDistance) + 0.5 * jumpDistance;
+  var newGroundPositionX = Math.random() * ((1.75 * jumpDistance) - 0.5 * jumpDistance) + 0.5 * jumpDistance;
   var groundPositionY = Math.random() * (250 + 250) - 250;
   var groundPositionZ = groundStartZ;
 
-  console.log(groundPositionX + ", " + groundPositionY + " - " + groundWidth);
+  ground = new THREE.BoxGeometry(newGroundWidth, groundStartHeight, groundStartDepth);
+  newMeshGround = new THREE.Mesh(ground, materialGround);
+  newMeshGround.name = 'ground' + grounds.length;
+  var prevElement = grounds[grounds.length - 1];
+  newMeshGround.position.x = prevElement.position.x - prevElement.geometry.parameters.width / 2 - newGroundPositionX - newGroundWidth / 2;
+  newMeshGround.position.y = groundPositionY;
+  newMeshGround.position.z = groundPositionZ;
+  grounds.push(newMeshGround);
+  scene.add(newMeshGround);
+}
 
-  ground = new THREE.BoxGeometry(groundWidth, groundStartHeight, groundStartDepth);
-  meshGround1 = new THREE.Mesh(ground, materialGround);
-  meshGround1.position.x = meshGround.position.x - groundStartWidth / 2 - groundPositionX - groundWidth / 2;
-  meshGround1.position.y = groundPositionY;
-  meshGround1.position.z = groundPositionZ;
-  scene.add(meshGround1);
+function removeGroundFromArray(ground) {
+  for(var i = 0; i < grounds.length; i++)
+     if(grounds[i] == ground)
+        return grounds.splice(i,1)[0];
 }
 
 function animate() {
   if(isJumping) {
     jump();
-  } else if(!isJumping && isOnTheGround()) {
+  } else if(!isJumping && typeof onTheGround() !== 'undefined') {
     counter += playerSpeed / 50 * (movementVar / 2);
     var increaseX = motion * counter;
 
+    meshPanelA.position.x -= motion * playerSpeed * movementVar;
+    meshPanelB.position.x -= motion * playerSpeed * movementVar;
     camera.position.x -= motion * playerSpeed * movementVar;
     light.position.x -= motion * playerSpeed * movementVar;
     ambientLight.position.x -= motion * playerSpeed * movementVar;
@@ -222,19 +306,48 @@ function animate() {
     meshPlayer.position.x -= motion * playerSpeed * movementVar;
     meshChecker.position.x -= motion * playerSpeed * movementVar;
     meshPlayer.position.y += Math.cos(increaseX);
+    camera.position.y += Math.cos(increaseX);
+
+    if(meshPlayer.rotation.z < 0)
+      meshPlayer.rotation.z += 0.1;
+    if(meshPlayer.rotation.z > 0)
+      meshPlayer.rotation.z -= 0.1;
+    if(meshPlayer.rotation.z > -0.1 && meshPlayer.rotation.z < 0.1)
+      meshPlayer.rotation.z = 0;
 
     // drawDot();
   } else {
     meshPlayer.position.x -= movementVar * motion * playerSpeed;
     meshPlayer.position.y -= 2 * movementVar * motion * playerSpeed;
+    camera.position.x -= movementVar * motion * playerSpeed;
+    camera.position.y -= 2 * movementVar * motion * playerSpeed;
     meshPlayer.rotation.z += 0.05;
 
     meshChecker.position.x -= movementVar * motion * playerSpeed;
     meshChecker.position.y -= 2 * movementVar * motion * playerSpeed;
 
-    if(meshPlayer.position.y < playerStartY - 2000)
-      setUpObjects();
+    if(meshPlayer.position.y < playerStartY - 1500)
+      location.reload();
+      // setUpObjects(); // TODO Da rivedere
   }
+
+  // PANEL A
+  var groundCollidingWithPanelA = panelAColliding();
+  if(typeof groundCollidingWithPanelA !== 'undefined' && !removeOutsideElements) {
+    groundToRemove = groundCollidingWithPanelA;
+    removeOutsideElements = true;
+  } else if(typeof groundCollidingWithPanelA == 'undefined' && removeOutsideElements) {
+    scene.remove(removeGroundFromArray(groundToRemove));
+    removeOutsideElements = false;
+  }
+
+  // PANEL B
+  var groundCollidingWithPanelB = panelBColliding();
+  if(typeof groundCollidingWithPanelB !== 'undefined' && addOutsideElements) {
+    createRandomGround();
+    addOutsideElements = false;
+  } else if(typeof groundCollidingWithPanelB == 'undefined' && !addOutsideElements)
+    addOutsideElements = true;
 
   requestAnimationFrame(animate);
   render();
