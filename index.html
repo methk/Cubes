@@ -7,10 +7,32 @@
         margin: 0;
         overflow: hidden;
       }
+
+      .best {
+        position: fixed;
+        top: 0;
+        left: 30px;
+        font-size: 3em;
+        color: white;
+        font-weight: bold;
+        font-family: "Courier New", serif;
+      }
+
+      .score {
+        position: fixed;
+        top: 1.7em;
+        left: 30px;
+        font-size: 2em;
+        color: white;
+        font-family: "Courier New", serif;
+      }
     </style>
   </head>
   <body>
-    <div id="container"></div>
+    <div id="container">
+      <div class="best">Best: <span id="best"></span></div>
+      <div class="score">Score: <span id="score"></span></div>
+    </div>
 
     <!-- <script src="OrbitControls.js"></script> -->
     <script src="game.js"></script>

@@ -31,7 +31,10 @@ var materialGround, materialPlayer, materialChecker, materialPanels;
 var path, jumpingPlayerAngle = 0, jumpingPlayerPosition = 0, isJumping = false, playerSpeed = 200, movementVar = 6, jumpDistance = 300;
 
 // Movement variables
-var counter = 0, motion = Math.PI / playerSpeed / (movementVar / 2);
+var movementCounter = 0, motion = Math.PI / playerSpeed / (movementVar / 2);
+
+// Score
+var best, score, matchScore = 0, bestScore = 0;
 
 init();
 animate();
@@ -70,8 +73,6 @@ function init() {
   meshPlayer = new THREE.Mesh(player, materialPlayer);
   meshChecker = new THREE.Mesh(checker, materialChecker);
 
-  grounds.push(meshGround);
-
   // CAMERA AND LIGHTS
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
   ambientLight = new THREE.AmbientLight("#ffffff", 0.25);
@@ -87,10 +88,13 @@ function init() {
 
   setUpObjects();
 
+  best = document.getElementById('best');
+  score = document.getElementById('score');
+
   // EVENT HANDLERS
   window.addEventListener("resize", onWindowResize, false);
   document.addEventListener("keydown", onDocumentKeyDown, false);
-  document.onclick = function(event) { setUpJump(); };
+  document.onclick = function(event) {setUpJump()};
 }
 
 function onWindowResize() {
@@ -105,7 +109,11 @@ function onDocumentKeyDown(event) {
 }
 
 function setUpObjects() {
-  grounds.forEach(function(meshElement) { scene.remove(removeGroundFromArray(meshElement)); });
+  // Setup variables
+  jumpingPlayerAngle = 0, jumpingPlayerPosition = 0, isJumping = false, movementCounter = 0, removeOutsideElements = false, addOutsideElements = true, matchScore = 0;
+
+  while(grounds.length > 0)
+    scene.remove(grounds.shift());
   grounds.push(meshGround);
 
   meshGround.position.x = groundStartX;
@@ -142,9 +150,6 @@ function setUpObjects() {
   light.position.x = lightStartX;
   light.position.y = lightStartY;
   light.position.z = lightStartZ;
-
-  removeOutsideElements = false;
-  addOutsideElements = true;
 }
 
 function setUpJump() {
@@ -275,7 +280,7 @@ function createRandomGround() {
 
   ground = new THREE.BoxGeometry(newGroundWidth, groundStartHeight, groundStartDepth);
   newMeshGround = new THREE.Mesh(ground, materialGround);
-  newMeshGround.name = 'ground' + grounds.length;
+  newMeshGround.name = 'ground' + (grounds.length + 1);
   var prevElement = grounds[grounds.length - 1];
   newMeshGround.position.x = prevElement.position.x - prevElement.geometry.parameters.width / 2 - newGroundPositionX - newGroundWidth / 2;
   newMeshGround.position.y = groundPositionY;
@@ -291,11 +296,17 @@ function removeGroundFromArray(ground) {
 }
 
 function animate() {
+  matchScore += 0.025;
+  if(best.innerHTML <= matchScore)
+    bestScore = matchScore
+  score.innerHTML = Math.floor(matchScore);
+  best.innerHTML = Math.floor(bestScore);
+
   if(isJumping) {
     jump();
   } else if(!isJumping && typeof onTheGround() !== 'undefined') {
-    counter += playerSpeed / 50 * (movementVar / 2);
-    var increaseX = motion * counter;
+    movementCounter += playerSpeed / 50 * (movementVar / 2);
+    var increaseX = motion * movementCounter;
 
     meshPanelA.position.x -= motion * playerSpeed * movementVar;
     meshPanelB.position.x -= motion * playerSpeed * movementVar;
@@ -327,8 +338,7 @@ function animate() {
     meshChecker.position.y -= 2 * movementVar * motion * playerSpeed;
 
     if(meshPlayer.position.y < playerStartY - 1500)
-      location.reload();
-      // setUpObjects(); // TODO Da rivedere
+      setUpObjects();
   }
 
   // PANEL A
